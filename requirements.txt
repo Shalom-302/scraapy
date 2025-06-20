@@ -1,0 +1,14 @@
+langchain_google_genai
+streamlit
+langchain
+python-dotenv
+langchain-community
+google-generativeai
+langgraph  
+tavily-python 
+beautifulsoup4 
+requests 
+pandas 
+numpy 
+plotly
+tavily-python
