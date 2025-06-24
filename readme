@@ -1,6 +1,125 @@
-git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/Shalom-302/scraapy.git
-git push -u origin main
+
+# 📰 Scraapy — Dashboard de Veille d'Actualités avec Streamlit & Tavily
+
+> Une application simple, moderne et performante pour consulter les actualités selon les périodes **Aujourd’hui**, **Hier**, ou **Cette semaine**, en temps réel via [Tavily](https://tavily.com).
+
+
+
+## 🚀 Aperçu
+
+<img src="https://i.imgur.com/3o1I0dF.png" width="400" align="right">
+
+🎯 Fonctionnalités :
+
+* 🔎 Scraping intelligent avec [Tavily API](https://tavily.com)
+* 🗂️ Filtres dynamiques de temps : aujourd’hui, hier, cette semaine
+* ⚡ Mise en cache avec `@st.cache_data` pour optimiser les performances
+* 📊 Résumé des articles analysés + mini graphique d'activité
+* 🌐 Interface rapide et responsive avec [Streamlit](https://streamlit.io)
+
+---
+
+## 🧱 Stack utilisée
+
+* `streamlit` — Frontend réactif
+* `tavily-python` — Client officiel Tavily pour la recherche d’actualités
+* `dotenv` — Gestion sécurisée des clés API
+* `pandas` — Visualisation simple avec `line_chart`
+
+---
+
+## 🛠️ Installation
+
+### 1. Cloner le repo
+
+```bash
+git clone https://github.com/Shalom-302/scraapy.git
+cd scraapy
+```
+
+### 2. Créer un environnement virtuel
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Sur Windows : .venv\Scripts\activate
+```
+
+### 3. Installer les dépendances
+
+```bash
+pip install -r requirements.txt
+```
+
+> Exemple de contenu pour `requirements.txt` :
+
+```txt
+streamlit
+pandas
+python-dotenv
+tavily-python
+```
+
+### 4. Ajouter la clé API Tavily
+
+Crée un fichier `.env` à la racine avec ta clé :
+
+```env
+TAVILY_API_KEY=ton_token_tavily_ici
+```
+
+🔑 Obtiens une clé ici : [https://tavily.com](https://tavily.com)
+
+---
+
+## ▶️ Lancer l'application
+
+```bash
+streamlit run scraap.py
+```
+
+Puis ouvre le lien local proposé (par défaut [http://localhost:8501](http://localhost:8501))
+
+---
+
+## 📸 Interface
+
+| Vue principale                                                                          | Sidebar                                              |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| ✅ Affichage des articles dynamiques <br> ✅ Images et extraits <br> ✅ Graphique de stats | ✅ Sélection filtre de date <br> ✅ Mode de navigation |
+
+---
+
+## 📦 Structure du code
+
+```
+├── app.py                # Application Streamlit principale
+├── .env                 # Clé Tavily API
+├── requirements.txt     # Dépendances Python
+└── README.md            # Ce fichier
+```
+
+---
+
+## 📌 À faire (prochaines améliorations)
+
+* [ ] Ajouter les vraies images (via Bing API ?)
+* [ ] Historique local (JSON)
+* [ ] Résumés IA via `include_answer=True`
+* [ ] Intégration LangGraph pour chaînage avancé
+* [ ] Ajout de la recherche par mot-clé
+
+---
+
+## 🧠 Extrait de code
+
+```python
+@st.cache_data(ttl=3600)
+def search_news(time_filter: str):
+    response = tavily_client.search(
+        query="Principales actualités dans le monde",
+        search_depth="advanced",
+        time_published_days=days_map.get(time_filter, 1),
+        max_results=5
+    )
+    return response["results"]
+```
