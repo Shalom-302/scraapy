@@ -1,76 +1,122 @@
 
-# 📰 Scraapy — Dashboard de Veille d'Actualités avec Streamlit & Tavily
+-----
 
-> Une application simple, moderne et performante pour consulter les actualités selon les périodes **Aujourd’hui**, **Hier**, ou **Cette semaine**, en temps réel via [Tavily](https://tavily.com).
+# 📰 Scraapy — Dashboard de Veille d'Actualités avec Streamlit & IA Avancée
 
+> Scraapy est désormais une application robuste et intelligente, conçue pour transformer la simple consultation d'actualités en une veille stratégique approfondie. Grâce à un workflow avancé propulsé par **LangGraph**, elle extrait, analyse et synthétise des informations cruciales en temps réel, offrant des rapports de veille personnalisés.
 
-🎯 Fonctionnalités :
+-----
 
-* 🔎 Scraping intelligent avec [Tavily API](https://tavily.com)
-* 🗂️ Filtres dynamiques de temps : aujourd’hui, hier, cette semaine
-* ⚡ Mise en cache avec `@st.cache_data` pour optimiser les performances
-* 📊 Résumé des articles analysés + mini graphique d'activité
-* 🌐 Interface rapide et responsive avec [Streamlit](https://streamlit.io)
+## 🎯 Fonctionnalités Clés :
 
----
+  * **🔎 Recherche Avancée :** Utilise [Tavily API](https://tavily.com) pour une recherche d'actualités pertinente.
+  * **🧠 Intelligence Artificielle Avancée :** Intègre les **grands modèles de langage (LLM) de DeepSeek** pour des capacités d'analyse textuelle de pointe.
+  * **🔗 Workflows Complexes avec LangGraph :** Orchestre des processus de veille sophistiqués, incluant la recherche, le scraping de contenu, le résumé, et l'extraction d'insights, grâce à un pipeline multi-agents dynamique.
+  * **📊 Rapports de Veille Structurés :** Génère des rapports concis et pertinents, incluant des résumés d'articles, des tendances clés, des entités identifiées et des points d'action.
+  * **🛠️ Observabilité Complète avec LangSmith :** Permet un débogage, une évaluation et une surveillance approfondie de chaque étape du workflow IA.
+  * **⚡ Mise en Cache Intelligente :** Utilise `@st.cache_data` pour optimiser les performances des appels externes et réduire les coûts.
+  * **🌐 Interface Intuitive :** Construit avec [Streamlit](https://streamlit.io) pour une expérience utilisateur rapide et interactive.
+  * **🗂️ Filtres de Temps Dynamiques :** Permet de cibler les actualités "Aujourd’hui", "Hier" ou "Cette semaine".
 
-## 🧱 Stack utilisée
+-----
 
-* `streamlit` — Frontend réactif
-* `tavily-python` — Client officiel Tavily pour la recherche d’actualités
-* `dotenv` — Gestion sécurisée des clés API
-* `pandas` — Visualisation simple avec `line_chart`
+## 🧱 Stack Technologique
 
----
+  * `streamlit` — Frontend réactif pour une interface utilisateur interactive.
+  * `langchain-google-genai` (ou `langchain-community` pour DeepSeek) — Intégration des LLM (initialement Google Gemini, désormais **DeepSeek**).
+  * `langgraph` — Framework pour la création de workflows d'agents IA complexes et cycliques.
+  * `tavily-python` — Client officiel Tavily pour la recherche d’actualités ciblée.
+  * `trafilatura` — Bibliothèque puissante pour l'extraction de contenu textuel propre à partir d'URLs.
+  * `pydantic` — Validation et gestion des structures de données (pour les insights).
+  * `python-dotenv` — Gestion sécurisée des clés API et variables d'environnement.
+  * `pandas` — Outil d'analyse de données pour des visualisations simples.
+  * `langsmith` (via `langchain`) — Plateforme d'observabilité et d'évaluation pour les applications basées sur les LLM.
+
+-----
 
 ## 🛠️ Installation
 
-### 1. Cloner le repo
+### 1\. Cloner le dépôt
 
 ```bash
 git clone https://github.com/Shalom-302/scraapy.git
 cd scraapy
 ```
 
-### 2. Créer un environnement virtuel
+### 2\. Créer et activer un environnement virtuel
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate 
+source .venv/bin/activate # Sur macOS/Linux
+# Ou .venv\Scripts\activate # Sur Windows
 ```
 
-### 3. Installer les dépendances
+### 3\. Installer les dépendances
 
 ```bash
 pip install -r requirements.txt
 ```
 
-> Exemple de contenu pour `requirements.txt` :
+> **Exemple de contenu pour `requirements.txt` (Assurez-vous que toutes ces dépendances sont présentes) :**
 
 ```txt
 streamlit
 pandas
 python-dotenv
 tavily-python
+langchain-google-genai # Si vous utilisez Gemini, sinon passez directement à langchain-community
+langchain-community # Pour DeepSeek et d'autres modèles/outils
+langchain-core # Composants de base de LangChain
+langgraph
+trafilatura
+unstructured # Pour le scraping, Trafilatura est souvent préféré mais cela peut être utile
+pydantic # Pour les modèles de données
 ```
 
-### 4. Ajouter la clé API Tavily
+### 4\. Configurer les clés API
 
-Crée un fichier `.env` à la racine avec ta clé :
+Créez un fichier `.env` à la racine de votre projet avec les clés API nécessaires :
 
 ```env
-TAVILY_API_KEY=ton_token_tavily_ici
+# Clé pour la recherche d'actualités avec Tavily
+TAVILY_API_KEY="votre_clé_tavily_ici"
+
+# Clé pour le modèle d'IA DeepSeek (ou autre LLM comme Gemini si préféré)
+# Assurez-vous que cette clé correspond au LLM utilisé dans backend_scraapy.py
+DEEPSEEK_API_KEY="votre_clé_deepseek_ici"
+# Ou si vous revenez à Gemini : GOOGLE_API_KEY="votre_clé_gemini_ici"
+
+# Configuration pour LangSmith (Observabilité et Débogage)
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+LANGCHAIN_API_KEY="votre_clé_langsmith_ici" # C'est la clé que LangSmith attend
+LANGCHAIN_PROJECT="" # Nom de votre projet dans LangSmith (visible dans l'interface)
 ```
 
-🔑 Obtiens une clé ici : [https://tavily.com](https://tavily.com)
+🔑 **Où obtenir vos clés :**
 
----
+  * **Tavily :** [https://tavily.com](https://tavily.com)
+  * **DeepSeek :** [https://platform.deepseek.com/api\_keys](https://platform.deepseek.com/api_keys)
+  * **Google Gemini :** [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) (si vous choisissez de l'utiliser)
+  * **LangSmith :** [https://smith.langchain.com/settings](https://smith.langchain.com/settings)
+
+-----
 
 ## ▶️ Lancer l'application
 
+Votre application est maintenant divisée en deux modules : `scraap.py` (la logique LangGraph) et `main.py` (l'interface Streamlit).
+
 ```bash
-streamlit run scraap.py
+streamlit run main.py
 ```
 
-Puis ouvre le lien local proposé (par défaut [http://localhost:8501](http://localhost:8501))
+Puis ouvrez le lien local proposé par Streamlit dans votre navigateur (par défaut [http://localhost:8501](https://www.google.com/search?q=http://localhost:8501)).
 
+-----
+
+### **Conseils pour le Développement et le Débogage :**
+
+  * **LangSmith est votre meilleur ami \!** Visitez votre projet LangSmith à l'adresse indiquée dans `LANGCHAIN_PROJECT` après chaque exécution. Vous pourrez y voir le déroulement détaillé de chaque appel LLM, l'état de votre graphe LangGraph, et identifier précisément où les problèmes (comme les quotas API) surviennent.
+  * **Surveillez le terminal :** Gardez toujours un œil sur le terminal où vous lancez l'application pour les messages d'erreur et les `print` que vous avez ajoutés.
+
+-----

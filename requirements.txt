@@ -12,3 +12,6 @@ pandas
 numpy 
 plotly
 tavily-python
+trafilatura
+watchdog
+langchain-deepseek
