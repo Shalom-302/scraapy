@@ -74,23 +74,3 @@ streamlit run scraap.py
 
 Puis ouvre le lien local proposé (par défaut [http://localhost:8501](http://localhost:8501))
 
-
-## 📦 Structure du code
-
-```
-├── scrapp.py                # Application Streamlit principale
-├── .env                 # Clé Tavily API
-├── requirements.txt     # Dépendances Python
-└── README.md            # Ce fichier
-```
-
-
-
-## 📌 À faire (prochaines améliorations)
-
-* [ ] Ajouter les vraies images (via Bing API ?)
-* [ ] Historique local (JSON)
-* [ ] Résumés IA via `include_answer=True`
-* [ ] Intégration LangGraph pour chaînage avancé
-* [ ] Ajout de la recherche par mot-clé
-
