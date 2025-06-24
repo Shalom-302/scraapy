@@ -1,11 +1,9 @@
 
------
 
 # 📰 Scraapy — Dashboard de Veille d'Actualités avec Streamlit & IA Avancée
 
-> Scraapy est désormais une application robuste et intelligente, conçue pour transformer la simple consultation d'actualités en une veille stratégique approfondie. Grâce à un workflow avancé propulsé par **LangGraph**, elle extrait, analyse et synthétise des informations cruciales en temps réel, offrant des rapports de veille personnalisés.
+Scraapy est désormais une application robuste et intelligente, conçue pour transformer la simple consultation d'actualités en une veille stratégique approfondie. Grâce à un workflow avancé propulsé par **LangGraph**, elle extrait, analyse et synthétise des informations cruciales en temps réel, offrant des rapports de veille personnalisés.
 
------
 
 ## 🎯 Fonctionnalités Clés :
 
@@ -18,7 +16,6 @@
   * **🌐 Interface Intuitive :** Construit avec [Streamlit](https://streamlit.io) pour une expérience utilisateur rapide et interactive.
   * **🗂️ Filtres de Temps Dynamiques :** Permet de cibler les actualités "Aujourd’hui", "Hier" ou "Cette semaine".
 
------
 
 ## 🧱 Stack Technologique
 
@@ -32,7 +29,7 @@
   * `pandas` — Outil d'analyse de données pour des visualisations simples.
   * `langsmith` (via `langchain`) — Plateforme d'observabilité et d'évaluation pour les applications basées sur les LLM.
 
------
+
 
 ## 🛠️ Installation
 
@@ -57,7 +54,7 @@ source .venv/bin/activate # Sur macOS/Linux
 pip install -r requirements.txt
 ```
 
-> **Exemple de contenu pour `requirements.txt` (Assurez-vous que toutes ces dépendances sont présentes) :**
+**Exemple de contenu pour `requirements.txt` (Assurez-vous que toutes ces dépendances sont présentes) :**
 
 ```txt
 streamlit
@@ -100,7 +97,6 @@ LANGCHAIN_PROJECT="" # Nom de votre projet dans LangSmith (visible dans l'interf
   * **Google Gemini :** [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) (si vous choisissez de l'utiliser)
   * **LangSmith :** [https://smith.langchain.com/settings](https://smith.langchain.com/settings)
 
------
 
 ## ▶️ Lancer l'application
 
@@ -112,11 +108,9 @@ streamlit run main.py
 
 Puis ouvrez le lien local proposé par Streamlit dans votre navigateur (par défaut [http://localhost:8501](https://www.google.com/search?q=http://localhost:8501)).
 
------
 
 ### **Conseils pour le Développement et le Débogage :**
 
   * **LangSmith est votre meilleur ami \!** Visitez votre projet LangSmith à l'adresse indiquée dans `LANGCHAIN_PROJECT` après chaque exécution. Vous pourrez y voir le déroulement détaillé de chaque appel LLM, l'état de votre graphe LangGraph, et identifier précisément où les problèmes (comme les quotas API) surviennent.
   * **Surveillez le terminal :** Gardez toujours un œil sur le terminal où vous lancez l'application pour les messages d'erreur et les `print` que vous avez ajoutés.
 
------
