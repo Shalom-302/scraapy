@@ -4,11 +4,6 @@
 > Une application simple, moderne et performante pour consulter les actualités selon les périodes **Aujourd’hui**, **Hier**, ou **Cette semaine**, en temps réel via [Tavily](https://tavily.com).
 
 
-
-## 🚀 Aperçu
-
-<img src="https://i.imgur.com/3o1I0dF.png" width="400" align="right">
-
 🎯 Fonctionnalités :
 
 * 🔎 Scraping intelligent avec [Tavily API](https://tavily.com)
@@ -41,7 +36,7 @@ cd scraapy
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Sur Windows : .venv\Scripts\activate
+source .venv/bin/activate 
 ```
 
 ### 3. Installer les dépendances
@@ -79,15 +74,6 @@ streamlit run scraap.py
 
 Puis ouvre le lien local proposé (par défaut [http://localhost:8501](http://localhost:8501))
 
----
-
-## 📸 Interface
-
-| Vue principale                                                                          | Sidebar                                              |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| ✅ Affichage des articles dynamiques <br> ✅ Images et extraits <br> ✅ Graphique de stats | ✅ Sélection filtre de date <br> ✅ Mode de navigation |
-
----
 
 ## 📦 Structure du code
 
@@ -98,7 +84,7 @@ Puis ouvre le lien local proposé (par défaut [http://localhost:8501](http://lo
 └── README.md            # Ce fichier
 ```
 
----
+
 
 ## 📌 À faire (prochaines améliorations)
 
@@ -108,18 +94,3 @@ Puis ouvre le lien local proposé (par défaut [http://localhost:8501](http://lo
 * [ ] Intégration LangGraph pour chaînage avancé
 * [ ] Ajout de la recherche par mot-clé
 
----
-
-## 🧠 Extrait de code
-
-```python
-@st.cache_data(ttl=3600)
-def search_news(time_filter: str):
-    response = tavily_client.search(
-        query="Principales actualités dans le monde",
-        search_depth="advanced",
-        time_published_days=days_map.get(time_filter, 1),
-        max_results=5
-    )
-    return response["results"]
-```
