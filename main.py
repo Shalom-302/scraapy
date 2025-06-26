@@ -50,8 +50,6 @@ if should_rerun() or not st.session_state["data_loaded"] or st.session_state.get
             st.session_state["last_processed_articles"] = final_state["processed_articles"]
             st.session_state["executed_at"] = datetime.now(timezone.utc).isoformat()
             st.session_state["data_loaded"] = True
-            st.success("✅ Veille réussie !")
-st.markdown(st.session_state.get("last_final_report", "Aucun rapport généré pour le moment."))
 
 
 st.title("SCRAAPY : Votre Assistant de Veille Intelligente")
