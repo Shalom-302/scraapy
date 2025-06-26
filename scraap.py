@@ -134,7 +134,7 @@ def extract_content(state: AgentState) -> AgentState:
 
 # Définition du schéma d'insights attendu
 class ArticleInsights(BaseModel):
-    summary: str = Field(description="Un résumé concis et informatif de l'article.")
+    summary: str = Field(description="Un résumé concis et informatif de l'article en tech.")
     main_topics: List[str] = Field(description="Liste des sujets principaux abordés dans l'article.")
     key_entities: List[str] = Field(description="Liste des personnes, organisations, lieux clés mentionnés.")
     sentiment: str = Field(description="Le sentiment général de l'article (positif, négatif, neutre).")
@@ -143,7 +143,7 @@ class ArticleInsights(BaseModel):
 parser = JsonOutputParser(pydantic_object=ArticleInsights)
 
 summary_insight_prompt = ChatPromptTemplate.from_messages([
-    ("system", "Vous êtes un expert en analyse d'actualités. Analysez l'article suivant et extrayez un résumé concis et des insights structurés. Répondez au format JSON spécifié.\n{format_instructions}"),
+    ("system", "Vous êtes un analyste de veille stratégique en tech. Créez un rapport concis et pertinent à partir des articles et insights fournis. Le rapport doit mettre en évidence les points clés, les tendances émergentes et les implications pour l'utilisateur, en réponse à la requête initiale. Organisez-le de manière claire avec des titres, des sous-titres et des listes. Répondez au format JSON spécifié.\n{format_instructions}"),
     ("human", "Article à analyser : \n\n{article_content}"),
 ]).partial(format_instructions=parser.get_format_instructions())
 

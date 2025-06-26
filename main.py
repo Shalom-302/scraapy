@@ -1,106 +1,99 @@
-# frontend_scraapy.py
-
 import streamlit as st
 import pandas as pd
 from typing import Dict, List
+from datetime import datetime, timezone, timedelta
+
+
+
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
+from scraap import run_veile_workflow, DetailedArticle, AgentState
 
-# Importez la fonction du backend
-from scraap import run_veile_workflow, DetailedArticle, AgentState # Importez AgentState et DetailedArticle pour les types
-
-
-# --- Configuration de la Page Streamlit ---
 st.set_page_config(layout="wide", page_title="SCRAAPY - Veille Automatisée")
 
-# --- Barre Latérale (Sidebar) ---
+# --- Barre Latérale ---
 with st.sidebar:
     st.markdown("## SCRAAPY")
-    st.text_input("Naviguer...", placeholder="Naviguer...")
-    st.markdown("<p style='font-size:10px; text-align:right;'>⌘K</p>", unsafe_allow_html=True)
+    st.markdown("### Paramètres de Veille")
+    selected_date_filter = st.radio("Période :", ["Aujourd'hui", "Hier", "Cette semaine"], index=0)
+    custom_query = st.text_input("Requête :", "Principales actualités dans le monde de la tech")
     st.markdown("---")
-    st.radio("Navigation", ["Scraapy", "Pour vous"], index=0, key="main_nav")
-    st.markdown("---")
-    st.markdown("### Filtres de Temps")
-    selected_date_filter = st.radio("Période :", ["Aujourd'hui", "Hier", "Cette semaine"], index=0, key="date_filter")
-    
-    st.markdown("---")
-    st.markdown("### Personnaliser la Veille")
-    custom_query = st.text_input(
-        "Requête de veille :", 
-        value="Principales actualités dans le monde actuel", # Exemple de requête plus spécifique
-        key="custom_query"
-    )
-    
-    st.markdown("---")
-    st.markdown("### Explorer")
-    st.radio("Catégories :", ["Tendances", "En direct"], key="explore_filter")
+    st.info("⏱️ La veille se lance automatiquement si plus d'1h s'est écoulée.")
 
+# --- Vérification du moment de la dernière exécution ---
+from datetime import datetime, timezone, timedelta
 
-# --- Contenu Principal ---
-st.title("SCRAAPY : Votre Assistant de Veille Intelligente")
-st.subheader(f"Génération de rapports basés sur : '{custom_query}' pour la période '{selected_date_filter}'")
+# --- Vérifier si une veille doit être relancée ---
+def should_rerun():
+    last_run_str = st.session_state.get("executed_at")
+    if last_run_str:
+        last_run = datetime.fromisoformat(last_run_str)
+        now = datetime.now(timezone.utc)
+        return (now - last_run) > timedelta(hours=1)
+    return True  # Jamais lancé
 
-# Bouton pour lancer le workflow LangGraph
-if st.button("Lancer la Veille Automatisée"):
-    st.markdown("---")
-    # Utilisation de st.spinner pour montrer que le traitement est en cours
-    with st.spinner("🚀 Lancement du workflow de veille LangGraph... C'est parti pour l'analyse !"):
-        # Appel de la fonction du backend
+# Clé d’état pour savoir si on a déjà chargé des données
+if "data_loaded" not in st.session_state:
+    st.session_state["data_loaded"] = False
+
+# Si les filtres changent ou si on doit relancer (1 fois/heure)
+if should_rerun() or not st.session_state["data_loaded"] or st.session_state.get("last_time_filter") != selected_date_filter:
+    st.session_state["last_time_filter"] = selected_date_filter
+    with st.spinner("🔄 Mise à jour automatique des données de veille..."):
         final_state: AgentState = run_veile_workflow(custom_query, selected_date_filter)
 
         if final_state.get("error_message"):
-            st.error(f"Une erreur est survenue lors de la veille : {final_state['error_message']}")
-            st.info("Vérifiez les logs de votre terminal et les traces LangSmith pour plus de détails.")
+            st.error(f"Erreur : {final_state['error_message']}")
         elif final_state.get("final_report"):
-            st.success("✅ Veille terminée avec succès ! Voici votre rapport.")
-            st.markdown("---")
-            st.subheader("📊 Rapport de Veille Détaillé")
-            st.markdown(final_state["final_report"]) # Afficher le rapport formaté en Markdown
-            
-            # Stocker les articles traités pour affichage persistant
-            st.session_state['last_processed_articles'] = final_state.get("processed_articles", [])
+            st.session_state["last_final_report"] = final_state["final_report"]
+            st.session_state["last_processed_articles"] = final_state["processed_articles"]
+            st.session_state["executed_at"] = datetime.now(timezone.utc).isoformat()
+            st.session_state["data_loaded"] = True
+            st.success("✅ Veille réussie !")
+st.markdown(st.session_state.get("last_final_report", "Aucun rapport généré pour le moment."))
 
-            # Optionnel : Afficher les détails des articles traités dans une section déroulante
-            if final_state.get("processed_articles"):
+
+st.title("SCRAAPY : Votre Assistant de Veille Intelligente")
+st.caption(f"🕒 Veille générée le : {st.session_state.get('executed_at', '').replace('T', ' ')[:19]} UTC")
+st.subheader(f"Rapport : '{custom_query}' ({selected_date_filter})")
+
+if final_state.get("error_message"):
+    st.error(f"❌ Erreur : {final_state['error_message']}")
+elif final_state.get("final_report"):
+    st.success("✅ Veille réussie !")
+    st.markdown("---")
+    st.subheader("📊 Rapport de Veille")
+    st.markdown(final_state["final_report"])
+
+    if final_state.get("processed_articles"):
+        st.markdown("---")
+        st.subheader("📚 Articles Sources")
+        with st.expander(f"Voir les {len(final_state['processed_articles'])} articles analysés"):
+            for i, article in enumerate(final_state["processed_articles"]):
+                st.markdown(f"#### {i+1}. {article['title']}")
+                st.markdown(f"**Source :** [{article['url']}]({article['url']})")
+                st.markdown(f"**Résumé :** {article.get('summary', 'Non disponible')}")
+                insights = article.get("insights", {})
+                if insights:
+                    st.markdown("**Insights Clés :**")
+                    for k, v in insights.items():
+                        if isinstance(v, list) and v:
+                            st.markdown(f"- **{k.replace('_', ' ').title()}:** {', '.join(v)}")
+                        elif isinstance(v, str) and v:
+                            st.markdown(f"- **{k.replace('_', ' ').title()}:** {v}")
                 st.markdown("---")
-                st.subheader("📚 Articles Sources Analysés")
-                with st.expander(f"Voir les {len(final_state['processed_articles'])} articles sources détaillés"):
-                    for i, article in enumerate(final_state["processed_articles"]):
-                        st.markdown(f"#### {i+1}. {article['title']}")
-                        st.markdown(f"**Source :** [{article['url']}]({article['url']})")
-                        if "Erreur d'extraction" in article["content"] or "Erreur lors de la génération" in article["summary"]:
-                             st.warning(f"Problème lors du traitement de cet article : {article.get('summary', 'N/A')}")
-                        else:
-                            st.markdown(f"**Résumé :** {article['summary']}")
-                            if article['insights']:
-                                st.markdown("**Insights Clés :**")
-                                for k, v in article['insights'].items():
-                                    if isinstance(v, list) and v:
-                                        st.markdown(f"- **{k.replace('_', ' ').title()}:** {', '.join(v)}")
-                                    elif isinstance(v, str) and v:
-                                        st.markdown(f"- **{k.replace('_', ' ').title()}:** {v}")
-                        st.markdown("---")
-            else:
-                st.info("Aucun article n'a pu être traité pour générer des insights.")
-        else:
-            st.warning("Le workflow a terminé mais aucun rapport n'a été généré. Il pourrait y avoir un problème.")
-            st.info("Vérifiez les logs de votre terminal et les traces LangSmith pour plus de détails.")
+    else:
+        st.warning("Aucun article traité ou contenu inaccessible.")
+else:
+    st.warning("Le workflow a terminé mais aucun rapport n'a été généré.")
 
-# --- Section "Articles analysés" et graphique ---
-# Afficher le nombre d'articles traités à partir de la dernière exécution réussie
-col_articles_count, col_summary_chart = st.columns([3, 1])
-
-with col_articles_count:
-    st.markdown("---")
-    st.markdown("### Statistiques de la dernière veille")
-    num_processed = len(st.session_state.get('last_processed_articles', []))
-    st.metric(label="Articles analysés", value=num_processed)
-    
-with col_summary_chart:
-    st.markdown("---")
+# --- Statistiques ---
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.markdown("### Statistiques")
+    st.metric("Articles analysés", len(st.session_state.get("last_processed_articles", [])))
+with col2:
     st.markdown("### Tendance (Exemple)")
-    # Ceci est un placeholder, vous pourriez le rendre dynamique avec de vraies métriques de veille
-    chart_data = pd.DataFrame({'value': [100, 200, 150, 300, 250, 400], 'index': range(6)})
+    chart_data = pd.DataFrame({'value': [100, 200, 150, 300], 'index': range(4)})
     st.line_chart(chart_data, use_container_width=True)
