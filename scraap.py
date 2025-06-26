@@ -65,8 +65,18 @@ class AgentState(TypedDict):
 
 # --- Nœuds (Agents) du Graphe LangGraph ---
 
+ALLOWED_DOMAINS = [
+    "techcrunch.com",
+    "theverge.com",
+    "numerama.com",
+    "frandroid.com",
+    "01net.com",
+    "zdnet.fr",
+    "clubic.com",
+    "tomshardware.fr"
+]
+
 def call_tavily_search(state: AgentState) -> AgentState:
-    """Recherche des actualités avec Tavily."""
     print("---NODE: Calling Tavily Search---")
     query = state["query"]
     time_filter = state["time_filter"]
@@ -76,20 +86,40 @@ def call_tavily_search(state: AgentState) -> AgentState:
         "Hier": 2,
         "Cette semaine": 7
     }
-    
+
     try:
         response = tavily_client.search(
             query=query,
             search_depth="advanced",
             time_published_days=days_map.get(time_filter, 1),
-            max_results=2 # Augmenté pour potentiellement plus de matière
+            max_results=5,
+            include_domains=ALLOWED_DOMAINS
         )
-        state["search_results"] = response['results']
+        raw_results = response['results']
+
+        # 🔒 Filtrage des domaines autorisés (par sécurité)
+        filtered_results = [
+            r for r in raw_results if any(domain in r['url'] for domain in ALLOWED_DOMAINS)
+        ]
+
+        if not filtered_results:
+            state["error_message"] = "Aucun résultat pertinent trouvé parmi les sources gratuites."
+        else:
+            state["search_results"] = filtered_results
+
         return state
+
     except Exception as e:
         state["error_message"] = f"Erreur lors de la recherche Tavily : {e}"
         print(f"Error in call_tavily_search: {e}")
         return state
+
+
+    except Exception as e:
+        state["error_message"] = f"Erreur lors de la recherche Tavily : {e}"
+        print(f"Error in call_tavily_search: {e}")
+        return state
+
 
 def extract_content(state: AgentState) -> AgentState:
     """Extrait le contenu complet des URLs."""

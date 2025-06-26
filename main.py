@@ -64,7 +64,6 @@ elif final_state.get("final_report"):
     st.success("✅ Veille réussie !")
     st.markdown("---")
     st.subheader("📊 Rapport de Veille")
-    st.markdown(final_state["final_report"])
 
     if final_state.get("processed_articles"):
         st.markdown("---")
