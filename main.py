@@ -22,37 +22,28 @@ with st.sidebar:
     st.info("⏱️ La veille se lance automatiquement si plus d'1h s'est écoulée.")
 
 # --- Vérification du moment de la dernière exécution ---
-from datetime import datetime, timezone, timedelta
-
-# --- Vérifier si une veille doit être relancée ---
 def should_rerun():
     last_run_str = st.session_state.get("executed_at")
     if last_run_str:
         last_run = datetime.fromisoformat(last_run_str)
         now = datetime.now(timezone.utc)
         return (now - last_run) > timedelta(hours=1)
-    return True  # Jamais lancé
+    return True  #
 
-# Clé d’état pour savoir si on a déjà chargé des données
+# --- Exécution automatique du workflow si besoin ---
 if "data_loaded" not in st.session_state:
     st.session_state["data_loaded"] = False
 
-# Si les filtres changent ou si on doit relancer (1 fois/heure)
-if should_rerun() or not st.session_state["data_loaded"] or st.session_state.get("last_time_filter") != selected_date_filter:
-    st.session_state["last_time_filter"] = selected_date_filter
-    with st.spinner("🔄 Mise à jour automatique des données de veille..."):
+if should_rerun() or not st.session_state["data_loaded"]:
+    st.session_state["data_loaded"] = True
+    with st.spinner("🚀 Lancement de la veille automatisée..."):
         final_state: AgentState = run_veile_workflow(custom_query, selected_date_filter)
+        st.session_state["final_state"] = final_state
+        st.session_state["last_processed_articles"] = final_state.get("processed_articles", [])
+        st.session_state["executed_at"] = datetime.utcnow().isoformat()
 
-        if final_state.get("error_message"):
-            st.error(f"Erreur : {final_state['error_message']}")
-        elif final_state.get("final_report"):
-            st.session_state["last_final_report"] = final_state["final_report"]
-            st.session_state["last_processed_articles"] = final_state["processed_articles"]
-            st.session_state["executed_at"] = datetime.now(timezone.utc).isoformat()
-            st.session_state["data_loaded"] = True
-            st.success("✅ Veille réussie !")
-st.markdown(st.session_state.get("last_final_report", "Aucun rapport généré pour le moment."))
-
+# --- Affichage des résultats ---
+final_state = st.session_state.get("final_state", {})
 
 st.title("SCRAAPY : Votre Assistant de Veille Intelligente")
 st.caption(f"🕒 Veille générée le : {st.session_state.get('executed_at', '').replace('T', ' ')[:19]} UTC")
@@ -64,6 +55,7 @@ elif final_state.get("final_report"):
     st.success("✅ Veille réussie !")
     st.markdown("---")
     st.subheader("📊 Rapport de Veille")
+    st.markdown(final_state["final_report"])
 
     if final_state.get("processed_articles"):
         st.markdown("---")
