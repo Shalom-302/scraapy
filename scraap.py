@@ -29,154 +29,259 @@ class FoundArticle(TypedDict):
 class ProcessedArticle(FoundArticle):
     content: str; summary: str
 class AgentState(TypedDict):
-    query: str; found_articles: List[FoundArticle]; processed_articles: List[ProcessedArticle]; final_report: Optional[str]; error_message: Optional[str]
+    query: str;sites_to_process: List[str];current_site: str; found_articles: List[FoundArticle]; processed_articles: List[ProcessedArticle]; final_report: Optional[str]; error_message: Optional[str]
 
 # --- Nœuds du Graphe ---
 
-def scrape_techmeme_homepage(state: AgentState) -> AgentState:
-    print("--- NŒUD 1 : Scraping de Techmeme avec le sélecteur final ---")
-    target_url = "https://www.techmeme.com/"
-    articles_found = []
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}
-        response = requests.get(target_url, headers=headers, timeout=15)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
+DOMAINES_A_IGNORER = [
+    'bloomberg.com',
+    'wsj.com',
+    'nytimes.com',
+    'reuters.com',
+    'ft.com',
+    'theinformation.com',
+    'axios.com',
+    't.co', # Liens Twitter
+    'ad.doubleclick.net' # Publicité
+]
 
-        # =========================================================================
-        # === LE SÉLECTEUR FINAL, LE PLUS SIMPLE ET LE PLUS FONDAMENTAL        ===
-        # === Tous les titres d'articles sont des liens dans une balise <strong>    ===
-        # =========================================================================
-        selector = 'strong > a'
-        article_links = soup.select(selector)
-        
-        print(f"DIAGNOSTIC : {len(article_links)} articles trouvés avec le sélecteur final ('{selector}').")
+def scrape_techmeme(soup: BeautifulSoup, base_url: str) -> List[FoundArticle]:
+    """Scrape les articles de Techmeme en filtrant les sources problématiques."""
+    articles = []
+    for link in soup.select('strong > a'):
+        href, title = link.get('href'), link.get_text(strip=True)
+        if href and title:
+            # === AJOUT DE LA LOGIQUE DE FILTRAGE ===
+            if not any(domaine in href for domaine in DOMAINES_A_IGNORER):
+                full_url = urljoin(base_url, href)
+                articles.append({"title": title, "url": full_url, "source": "Techmeme"})
+            else:
+                print(f"  -> Ignoré (source bloquée) : {href}")
 
-        if not article_links:
-            state["error_message"] = "Le sélecteur 'strong > a' n'a retourné aucun article. La structure de Techmeme a radicalement changé."
-            return state
+    return articles
 
-        for link in article_links:
-            href = link.get('href')
-            title = link.get_text(strip=True)
-            if href and not href.startswith('http'):
-                href = urljoin(target_url, href)
-            if href and title:
-                articles_found.append({"title": title, "url": href})
-        
-        # Pour éviter les doublons, car plusieurs liens peuvent pointer vers le même article
-        unique_articles = list({article['url']: article for article in articles_found}.values())
-        print(f"Trouvé {len(unique_articles)} articles uniques.")
-        state["found_articles"] = unique_articles
-        return state
-
-    except Exception as e:
-        state["error_message"] = f"Erreur critique lors du scraping : {e}"
-        return state
-
-def extract_full_content(state: AgentState) -> AgentState:
-    """
-    Prend la liste d'articles, visite chaque URL, et extrait le contenu ET la date.
-    """
-    print("--- NŒUD 2 : Extraction du contenu et de la date des articles ---")
-    articles_to_process = state.get("found_articles", [])
-    processed_articles = []
+def scrape_techcabal(soup: BeautifulSoup, base_url: str) -> List[FoundArticle]:
+    """Scrape les articles de TechCabal (sélecteur final et correct)."""
+    articles = []
     
-    if not articles_to_process:
-        print("Aucun article trouvé à l'étape précédente.")
-        state["processed_articles"] = []
-        return state
+  
+    # On cherche le lien avec la classe 'article-list-title' dans chaque 'article'
+    # avec la classe 'article-list-item'. C'est très spécifique et robuste.
+    selector = "article.article-list-item a.article-list-title"
+    
+    for link in soup.select(selector):
+        title = link.get_text(strip=True)
+        href = link.get('href')
+        if title and href:
+            # urljoin s'assure que l'URL est complète
+            articles.append({"title": title, "url": urljoin(base_url, href), "source": "TechCabal"})
+            
+    return articles
 
-    for article in articles_to_process:
-        try:
-            print(f"Extraction de : {article['url']}")
-            downloaded = trafilatura.fetch_url(article['url'])
+
+def scrape_techpoint_africa(soup: BeautifulSoup, base_url: str) -> List[FoundArticle]:
+    """Scrape les articles de TechPoint Africa (sélecteur final et correct)."""
+    articles = []
+    
+    # On cible les liens dans les conteneurs d'articles identifiés.
+    # C'est un sélecteur très spécifique pour éviter les faux positifs.
+    selector = "div.gb-query-loop-item .value a"
+    
+    for link in soup.select(selector):
+        href = link.get('href')
+        # .get_text(strip=True) va extraire le texte même s'il y a des balises <font>
+        title = link.get_text(strip=True)
+        
+        if href and title:
+            # urljoin s'assure que l'URL est complète
+            articles.append({"title": title, "url": urljoin(base_url, href), "source": "TechPoint Africa"})
             
-            # Extraire le contenu
-            content = trafilatura.extract(downloaded, favor_recall=True) if downloaded else ""
+    return articles
+
+
+
+def scrape_disruptafrica(soup: BeautifulSoup, base_url: str) -> List[FoundArticle]:
+    """Scrape les articles de Disrupt Africa (sélecteur final et correct)."""
+    articles = []
+    
+    # On cherche tous les liens <a> qui sont à l'intérieur d'un élément 
+    # (h2, h3, h4...) avec la classe "post-title".
+    selector = ".post-title a"
+    
+    for link in soup.select(selector):
+        href = link.get('href')
+        # On nettoie le texte, car il peut y avoir des balises <font> à l'intérieur
+        title = link.get_text(strip=True)
+        
+        if href and title:
+            # urljoin s'assure que l'URL est complète
+            articles.append({"title": title, "url": urljoin(base_url, href), "source": "Disrupt Africa"})
             
-            # Extraire les métadonnées, y compris la date
-            metadata = trafilatura.extract_metadata(downloaded)
-            date = metadata.date if metadata else "Date non trouvée"
+    return articles
+
+
+def scrape_weetracker(soup: BeautifulSoup, base_url: str) -> List[FoundArticle]:
+    """Scrape les articles de WeeTracker (sélecteur final et correct)."""
+    articles = []
+    
+
+    # On cherche tous les liens <a> à l'intérieur d'un h5 avec la classe "f-title".
+    selector = "h5.f-title a"
+    
+    for link in soup.select(selector):
+        href = link.get('href')
+        title = link.get_text(strip=True)
+        
+        if href and title:
+            # urljoin s'assure que l'URL est complète
+            articles.append({"title": title, "url": urljoin(base_url, href), "source": "WeeTracker"})
             
-            if content:
-                processed_articles.append({
-                    "title": article["title"],
-                    "url": article["url"],
-                    "content": content,
-                    "date": date, # On utilise la date extraite
-                    "summary": ""
-                })
-        except Exception as e:
-            print(f"Erreur d'extraction pour {article['url']}: {e}")
-            
-    state["processed_articles"] = processed_articles
+    return articles
+
+
+
+SCRAPER_REGISTRY = {
+    "https://www.techmeme.com/": scrape_techmeme,
+    "https://techcabal.com/": scrape_techcabal,
+    "https://techpoint.africa/": scrape_techpoint_africa,
+    "https://disruptafrica.com/": scrape_disruptafrica, 
+    "https://weetracker.com/": scrape_weetracker,         
+}
+
+def plan_next_site(state: AgentState) -> AgentState:
+    """Prépare le prochain site à scraper ou termine la boucle."""
+    print("--- NŒUD : Planification du prochain site ---")
+    sites = state.get("sites_to_process", []).copy()
+    if sites:
+        next_site = sites.pop(0)
+        state["current_site"] = next_site
+        state["sites_to_process"] = sites
+    else:
+        state["current_site"] = "" # Signale la fin de la boucle
     return state
 
-def summarize_and_report(state: AgentState) -> AgentState:
-    """
-    Parcourt les articles avec leur contenu complet, génère un résumé pour chacun,
-    et compile tout dans un rapport final en Markdown, en incluant la date.
-    """
-    print("--- NŒUD 3 : Résumé et génération du rapport ---")
-    articles_with_content = state.get("processed_articles", [])
+def scraper_dispatcher(state: AgentState) -> AgentState:
+    """Appelle le bon scraper pour le site actuel."""
+    site_url = state["current_site"]
+    print(f"--- NŒUD : Dispatching vers le scraper pour {site_url} ---")
+    scraper_function = SCRAPER_REGISTRY.get(site_url)
     
-    if not articles_with_content:
-        state["final_report"] = "Aucun article n'a pu être traité pour générer un rapport."
+    if not scraper_function:
+        print(f"AVERTISSEMENT : Aucun scraper trouvé pour {site_url}. On passe.")
+        return state
+        
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 ...'}
+        response = requests.get(site_url, headers=headers, timeout=20)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        new_articles = scraper_function(soup, site_url)
+        print(f"Trouvé {len(new_articles)} articles sur {site_url}.")
+        
+        # On ajoute les articles trouvés à la liste existante
+        current_articles = state.get("found_articles", [])
+        state["found_articles"] = current_articles + new_articles
+    except Exception as e:
+        print(f"ERREUR lors du scraping de {site_url}: {e}")
+        
+    return state
+
+def extract_and_summarize(state: AgentState) -> AgentState:
+    """
+    Prend TOUS les articles trouvés, extrait leur contenu de manière robuste, et génère un rapport.
+    """
+    print("\n--- NŒUD FINAL : Extraction, Résumé et Rapport (Version Robuste) ---")
+    all_found_articles = state.get("found_articles", [])
+    if not all_found_articles:
+        state["final_report"] = "Aucun article trouvé sur l'ensemble des sites."
         return state
 
-    summary_prompt = ChatPromptTemplate.from_template(
-        "Rédige un résumé concis de 2 à 3 phrases pour l'article suivant :\n\nTITRE: {title}\nCONTENU: {content}"
-    )
+    unique_articles_map = {article['url']: article for article in all_found_articles}
+    unique_articles_list = list(unique_articles_map.values())
+    print(f"Traitement de {len(unique_articles_list)} articles uniques.")
+    
+    processed_articles = []
+    summary_prompt = ChatPromptTemplate.from_template("Rédige un résumé concis de 2 à 3 phrases pour l'article suivant:\n\nTITRE: {title}\nCONTENU: {content}")
     summary_chain = summary_prompt | llm
 
-    for article in articles_with_content:
+    for article in unique_articles_list:
         try:
-            response = summary_chain.invoke({
-                "title": article["title"],
-                "content": article["content"][:4000]
-            })
-            article["summary"] = response.content
-        except Exception as e:
-            print(f"Erreur de résumé pour {article['title']}: {e}")
-            article["summary"] = "Impossible de générer un résumé."
+            # === LA CORRECTION EST ICI ===
+            # Étape 1 : Télécharger la page en premier
+            downloaded = trafilatura.fetch_url(article['url'])
 
-    # Construire le rapport final
-    report_parts = [f"# Rapport de Veille pour : {state['query']}\n\nVoici un résumé des derniers articles de Techmeme :\n"]
-    for article in articles_with_content:
+            # Étape 2 : Vérifier si le téléchargement a réussi AVANT de continuer
+            if downloaded:
+                content = trafilatura.extract(downloaded, favor_recall=True)
+                metadata = trafilatura.extract_metadata(downloaded)
+                date = metadata.date if metadata else "N/A"
+                summary = ""
+                
+                if content:
+                    response = summary_chain.invoke({"title": article["title"], "content": content[:4000]})
+                    summary = response.content
+                
+                processed_articles.append({**article, "content": content or "", "summary": summary, "date": date})
+            else:
+                # Si le téléchargement a échoué, on ne fait rien et on logue l'info
+                print(f"AVERTISSEMENT : Impossible de télécharger {article['url']}. Article ignoré.")
+
+        except Exception as e:
+            # Gérer les autres erreurs de manière gracieuse
+            print(f"ERREUR lors du traitement de {article['url']}: {e}. Article ignoré.")
+    
+    # Construction du rapport final (inchangé)
+    report_parts = [f"# Rapport de Veille pour : {state['query']}\n"]
+    for article in processed_articles:
         report_parts.append(f"## {article['title']}")
-        
-        # =========================================================================
-        # === CORRECTION : On ajoute article['date'] dans la ligne Source       ===
-        # =========================================================================
-        # On récupère la date, avec une valeur par défaut si elle n'existe pas
-        date_str = article.get('date', 'Date non spécifiée')
-        report_parts.append(f"**Source:** [{article['url']}]({article['url']}) | **Date :** {date_str}")
-        # =========================================================================
-        
+        report_parts.append(f"**Source:** {article['source']} | **Date:** {article.get('date', 'N/A')}")
+        report_parts.append(f"**URL:** [{article['url']}]({article['url']})")
         report_parts.append(f"**Résumé:** {article['summary']}\n")
     
     state["final_report"] = "\n".join(report_parts)
+    state["processed_articles"] = processed_articles
     return state
-# --- Construction du Graphe (Simple et Linéaire) ---
+
+# --- Logique de Routage ---
+def should_continue(state: AgentState) -> str:
+    """Décide s'il faut continuer la boucle de scraping."""
+    if state.get("current_site"):
+        return "continue_scraping"
+    else:
+        return "end_scraping"
+
+# --- Construction du Graphe ---
 def create_langgraph_app():
     graph = StateGraph(AgentState)
-    graph.add_node("scrape_homepage", scrape_techmeme_homepage)
-    graph.add_node("extract_content", extract_full_content)
-    graph.add_node("generate_report", summarize_and_report)
-    graph.set_entry_point("scrape_homepage")
-    graph.add_edge("scrape_homepage", "extract_content")
-    graph.add_edge("extract_content", "generate_report")
-    graph.add_edge("generate_report", END)
+    graph.add_node("planner", plan_next_site)
+    graph.add_node("dispatcher", scraper_dispatcher)
+    graph.add_node("aggregate_and_report", extract_and_summarize)
+    
+    graph.set_entry_point("planner")
+    
+    graph.add_conditional_edges(
+        "planner",
+        should_continue,
+        {"continue_scraping": "dispatcher", "end_scraping": "aggregate_and_report"}
+    )
+    graph.add_edge("dispatcher", "planner") # La boucle
+    graph.add_edge("aggregate_and_report", END)
+    
     return graph.compile()
 
 langgraph_app = create_langgraph_app()
 
 # --- Runner ---
 async def run_veile_workflow(query: str) -> Dict:
-    initial_state = {"query": query, "found_articles": [], "processed_articles": [], "final_report": None, "error_message": None}
+    initial_state = {
+        "query": query,
+        "sites_to_process": list(SCRAPER_REGISTRY.keys()),
+        "found_articles": [],
+    }
     try:
-        final_state = await langgraph_app.ainvoke(initial_state)
+        # On remet une limite de récursion car nous avons une boucle
+        final_state = await langgraph_app.ainvoke(initial_state, {"recursion_limit": 15})
         return final_state
     except Exception as e:
         return {"error_message": f"Erreur critique du workflow: {e}"}
