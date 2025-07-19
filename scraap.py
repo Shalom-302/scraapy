@@ -24,11 +24,17 @@ os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT")
 
 
 class ArticleAnalysis(BaseModel):
+        impact_afrique: str = Field(description="L'impact direct ou indirect de cet événement sur l'Afrique.")
+        problematique_africaine: str = Field(description="La problématique de fond que cela révèle pour le continent.")
+        eveil_de_conscience: str = Field(description="La leçon critique, le 'wake-up call' pour l'Afrique.")
+        piste_opportunite: str = Field(description="Une idée d'opportunité concrète pour l'écosystème tech africain.")
         type_evenement: str = Field(description="Ex: 'Faillite', 'Lancement de produit', 'Tendance'")
         resume_strategique: str = Field(description="Résumé de l'événement et son importance.")
         lecon_a_retenir: str = Field(description="Le conseil principal à tirer de cet événement.")
         impact_potentiel: str = Field(description="L'impact potentiel sur l'industrie.")
-
+        score_pertinence: int = Field(description="Un score de 1 à 10 indiquant l'importance de cet éveil de conscience pour l'Afrique. 10 est critique.", ge=1, le=10)
+        resume_neutre: str = Field(description="Un résumé factuel et neutre de l'article en 2-3 phrases.")
+        problematique_generale: str = Field(description="La problématique principale ou universelle soulevée par l'article.")
 
 # --- SECTION TYPES (Cohérente et Finale) ---
 class FoundArticle(TypedDict):
@@ -44,6 +50,9 @@ class AnalyzedArticle(FoundArticle):
     lecon_a_retenir: Optional[str]
     impact_potentiel: Optional[str]
     error: Optional[str]
+    score_pertinence: Optional[int]
+    resume_neutre: Optional[str] 
+    problematique_generale: Optional[str]
 
 class AgentState(TypedDict):
     query: str
@@ -123,120 +132,108 @@ def scraper_dispatcher(state: AgentState) -> dict:
         print(f"ERREUR lors du scraping de {site_url}: {e}")
         return {}
 
-
-
-
-def extract_analyze_and_report(state: AgentState) -> dict:
-    """
-    NŒUD FINAL : Prend les articles trouvés, extrait leur contenu, les analyse via un LLM
-    avec une structure Pydantic, filtre les résultats pertinents et génère un rapport final.
-    """
-    print("\n--- NŒUD FINAL : Extraction, Analyse et Rapport ---")
-    
-    # Récupération et dédoublonnage des articles
-    all_found_articles = state.get("found_articles", [])
-    if not all_found_articles:
-        return {"final_report": "Aucun article trouvé à traiter.", "analyzed_articles": []}
-
-    unique_articles_list = list({article['url']: article for article in all_found_articles}.values())
-    print(f"Traitement de {len(unique_articles_list)} articles uniques.")
-    
-    # Création de la chaîne d'analyse LangChain.
-    # Elle utilise le modèle Pydantic `ArticleAnalysis` défini au niveau du module.
-    analysis_prompt_template = """Vous êtes un analyste technologique et stratégique. Lisez l'article suivant et extrayez la "leçon de conscience".
-    Analysez le texte : <article_text>{content}</article_text>"""
-    analysis_prompt = ChatPromptTemplate.from_template(analysis_prompt_template)
-    analysis_chain = analysis_prompt | llm.with_structured_output(ArticleAnalysis)
-
-    # Liste pour stocker tous les articles après traitement (succès ou échec)
-    all_analyzed_articles: List[AnalyzedArticle] = []
-    
-    # Boucle de traitement pour chaque article unique
-    for article in unique_articles_list:
-        # Création d'un "template" d'article en cas d'erreur pour garantir la cohérence des types.
-        # Toutes les clés de `AnalyzedArticle` sont présentes et initialisées à None.
-        base_article_data: AnalyzedArticle = {
-            **article, "content": None, "date": None, "type_evenement": None,
-            "resume_strategique": None, "lecon_a_retenir": None, "impact_potentiel": None, "error": None
-        }
-        
-        try:
-            # 1. Téléchargement et extraction du contenu
-            downloaded = trafilatura.fetch_url(article['url'])
-            if not downloaded:
-                base_article_data["error"] = "Téléchargement échoué"
-                all_analyzed_articles.append(base_article_data)
-                continue # Passe à l'article suivant
-            
-            content = trafilatura.extract(downloaded, favor_recall=True)
-            metadata = trafilatura.extract_metadata(downloaded)
-            date = metadata.date if metadata else "N/A"
-            
-            # 2. Vérification et analyse par le LLM
-            if content and len(content) > 250:
-                try:
-                    # Invocation de la chaîne, qui retourne un objet Pydantic
-                    analysis_result_object = analysis_chain.invoke({"content": content[:8000]})
-                    
-                    # Conversion de l'objet Pydantic en dictionnaire Python
-                    analysis_result_dict = analysis_result_object.dict()
-                    
-                    # Création de l'objet final complet et bien typé
-                    full_article: AnalyzedArticle = {
-                        **base_article_data, 
-                        "content": content, 
-                        "date": date, 
-                        **analysis_result_dict, 
-                        "error": None
-                    }
-                    all_analyzed_articles.append(full_article)
-                    
-                except Exception as llm_error:
-                    # En cas d'échec du LLM, on stocke l'erreur
-                    base_article_data.update({"content": content, "date": date, "error": f"Erreur du LLM: {llm_error}"})
-                    all_analyzed_articles.append(base_article_data)
-            else:
-                # Si le contenu est insuffisant
-                base_article_data.update({"content": content, "date": date, "error": "Contenu insuffisant"})
-                all_analyzed_articles.append(base_article_data)
-                
-        except Exception as e:
-            # En cas d'échec de l'extraction
-            base_article_data["error"] = f"Erreur d'extraction: {e}"
-            all_analyzed_articles.append(base_article_data)
-
-    # Filtrage des articles pour ne garder que les plus pertinents pour le rapport
-    print(f"Filtrage des {len(all_analyzed_articles)} articles pour le rapport final...")
-    insightful_articles = [
-        article for article in all_analyzed_articles 
-        if not article.get("error") and article.get("lecon_a_retenir")
-    ]
-    print(f"Trouvé {len(insightful_articles)} articles avec une leçon de conscience pertinente.")
-
-    # Construction du rapport final à partir des articles filtrés
-    if not insightful_articles:
-        final_report = "# Rapport de Veille\n\nAucun article avec une leçon de conscience claire n'a été trouvé après analyse."
-    else:
-        report_parts = [f"# Rapport de Veille Stratégique : {state['query']}\n"]
-        for article in insightful_articles:
-            report_parts.append(f"## {article['title']}")
-            report_parts.append(f"**Source:** {article.get('source', 'N/A')} | **Date:** {article.get('date', 'N/A')}")
-            report_parts.append(f"**Analyse :** {article.get('resume_strategique', 'N/A')}")
-            report_parts.append(f"> **💡 Leçon à retenir :** {article.get('lecon_a_retenir', 'N/A')}\n")
-            report_parts.append(f"_[Lien vers l'article]({article['url']})_")
-        final_report = "\n\n".join(report_parts)
-
-    # La fonction retourne un dictionnaire contenant les clés à mettre à jour dans l'état
-    return {
-        "final_report": final_report,
-        "analyzed_articles": all_analyzed_articles # On retourne tous les articles pour un éventuel affichage détaillé
-    }
-
 # --- Logique de Routage ---
 def should_continue(state: AgentState) -> str:
     return "continue_scraping" if state.get("current_site") else "end_scraping"
 
 
+
+# Remplacez votre fonction extract_analyze_and_report par celle-ci
+# --- VERSION FINALE AVEC CLASSEMENT COMPLET ---
+# Remplacez votre fonction extract_analyze_and_report par celle-ci
+# Remplacez votre fonction extract_analyze_and_report par cette version finale et complète
+
+def extract_analyze_and_report(state: AgentState) -> dict:
+    print("\n--- NŒUD FINAL : Extraction, Analyse et Rapport ---")
+    all_found_articles = state.get("found_articles", [])
+    if not all_found_articles:
+        return {"final_report": "Aucun article trouvé.", "analyzed_articles": []}
+
+    unique_articles_list = list({article['url']: article for article in all_found_articles}.values())
+    print(f"Traitement de {len(unique_articles_list)} articles uniques.")
+    
+    # NOUVEAU PROMPT COMPLET
+    analysis_prompt_template = """Vous êtes un analyste technologique mondial doublé d'un stratège pour l'Afrique. Pour l'article fourni, effectuez une analyse en deux temps :
+    
+    **Partie 1 : Analyse Globale (Neutre)**
+    1.  **Résumé Neutre :** Rédigez un résumé factuel et concis de l'article.
+    2.  **Problématique Générale :** Identifiez la problématique principale ou universelle soulevée.
+    
+    **Partie 2 : Analyse Stratégique pour l'Afrique**
+    3.  **Impact sur l'Afrique :** Quel est l'impact direct ou indirect pour le continent ?
+    4.  **Problématique Spécifique à l'Afrique :** Quelle dépendance ou faiblesse cela révèle-t-il pour l'Afrique ?
+    5.  **Éveil de Conscience :** Quelle est la leçon critique pour les acteurs de la tech africaine ?
+    6.  **Piste d'Opportunité :** Quelle opportunité concrète cela crée-t-il ?
+    7.  **Score de Pertinence :** Attribuez un score de 1 à 10 sur l'importance de cette nouvelle pour l'Afrique.
+
+    Article à analyser : <article_text>{content}</article_text>"""
+    
+    analysis_prompt = ChatPromptTemplate.from_template(analysis_prompt_template)
+    analysis_chain = analysis_prompt | llm.with_structured_output(ArticleAnalysis)
+
+    all_analyzed_articles: List[AnalyzedArticle] = []
+    for article in unique_articles_list:
+        # Template d'erreur mis à jour avec les nouveaux champs
+        base_article_data: AnalyzedArticle = {**article, "content": None, "date": None, "resume_neutre": None, "problematique_generale": None, "impact_afrique": None, "problematique_africaine": None, "eveil_de_conscience": None, "piste_opportunite": None, "score_pertinence": None, "error": None}
+        try:
+            downloaded = trafilatura.fetch_url(article['url'])
+            if not downloaded:
+                base_article_data["error"] = "Téléchargement échoué"
+                all_analyzed_articles.append(base_article_data); continue
+            
+            content = trafilatura.extract(downloaded, favor_recall=True)
+            date = trafilatura.extract_metadata(downloaded).date if trafilatura.extract_metadata(downloaded) else "N/A"
+            
+            if content and len(content) > 250:
+                try:
+                    analysis_result_object = analysis_chain.invoke({"content": content[:8000]})
+                    analysis_result_dict = analysis_result_object.dict()
+                    full_article: AnalyzedArticle = {**base_article_data, "content": content, "date": date, **analysis_result_dict, "error": None}
+                    all_analyzed_articles.append(full_article)
+                except Exception as llm_error:
+                    base_article_data.update({"content": content, "date": date, "error": f"Erreur du LLM: {llm_error}"})
+                    all_analyzed_articles.append(base_article_data)
+            else:
+                base_article_data.update({"content": content, "date": date, "error": "Contenu insuffisant"})
+                all_analyzed_articles.append(base_article_data)
+        except Exception as e:
+            base_article_data["error"] = f"Erreur d'extraction: {e}"
+            all_analyzed_articles.append(base_article_data)
+
+    # Le tri reste le même
+    articles_with_score = [article for article in all_analyzed_articles if not article.get("error")]
+    articles_with_score.sort(key=lambda x: x.get("score_pertinence", 0), reverse=True)
+    print(f"Classement de {len(articles_with_score)} articles analysés par score de pertinence.")
+
+    # NOUVELLE CONSTRUCTION DU RAPPORT ENRICHI
+    if not articles_with_score:
+        final_report = "# Rapport de Veille Stratégique pour l'Afrique\n\nAucun article n'a pu être analysé avec succès."
+    else:
+        report_parts = [f"# Rapport de Veille Stratégique pour l'Afrique : {state['query']}\n"]
+        for article in articles_with_score:
+            score = article.get('score_pertinence')
+            score_emoji = "🔥" * (score // 2) + "⚫️" * ((10 - score) // 2) if score else "N/A"
+
+            report_parts.append(f"--- \n\n## {article['title']}")
+            report_parts.append(f"**Source:** {article.get('source', 'N/A')} | **Date:** {article.get('date', 'N/A')}")
+            
+            # --- Partie 1: Contexte Global ---
+            report_parts.append(f"\n### Contexte Global")
+            report_parts.append(f"**📝 Résumé :** {article.get('resume_neutre', 'N/A')}")
+            report_parts.append(f"**🌐 Problématique Générale :** {article.get('problematique_generale', 'N/A')}")
+
+            # --- Partie 2: Analyse pour l'Afrique ---
+            report_parts.append(f"\n### Analyse Stratégique pour l'Afrique")
+            report_parts.append(f"**Score de Pertinence : {score}/10** {score_emoji}")
+            report_parts.append(f"**🌍 Impact :** {article.get('impact_afrique', 'N/A')}")
+            report_parts.append(f"**🤔 Problématique Révélée :** {article.get('problematique_africaine', 'N/A')}")
+            report_parts.append(f"> **💡 Éveil de Conscience :** {article.get('eveil_de_conscience', 'N/A')}")
+            report_parts.append(f"**🚀 Piste d'Opportunité :** {article.get('piste_opportunite', 'N/A')}")
+            
+            report_parts.append(f"\n_[Lien vers l'article]({article['url']})_")
+        final_report = "\n\n".join(report_parts)
+
+    return {"final_report": final_report, "analyzed_articles": all_analyzed_articles}
 # --- Construction du Graphe ---
 def create_langgraph_app():
     graph = StateGraph(AgentState)
