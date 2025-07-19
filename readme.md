@@ -1,20 +1,4 @@
 
-**Analyse de votre structure de fichiers :**
-
--   `api.py` : Suggère que vous avez une API REST (probablement FastAPI) pour exposer les résultats ou lancer la veille par programme.
--   `frontend.py` / `main.py` : Ce sont vos points d'entrée pour l'interface Streamlit.
--   `scraap.py` : C'est votre backend, le cœur logique que nous avons construit.
--   `scheduler.py` : Implique que vous avez mis en place une exécution planifiée (par exemple, un cron job quotidien).
-
-Le `README.md` doit refléter cette structure professionnelle. Je vais réécrire le `README.md` pour qu'il corresponde parfaitement à votre projet, en expliquant le rôle de chaque fichier et comment lancer les différents composants.
-
----
-
-### **Le `README.md` Final, Adapté à Votre Projet**
-
-Voici la version finale. Effacez le contenu de votre `readme.md` actuel et remplacez-le par celui-ci.
-
-```markdown
 # 🤖 Agent de Veille "Conscience Tech Africaine"
 
 Cet agent intelligent est un outil de veille stratégique conçu pour analyser l'actualité technologique mondiale et en extraire des leçons critiques, des problématiques et des opportunités spécifiques au continent africain. Il va au-delà du simple scraping en utilisant un LLM pour générer une analyse géostratégique, transformant l'information brute en intelligence actionnable.
