@@ -33,7 +33,7 @@ class ArticleAnalysis(BaseModel):
         lecon_a_retenir: str = Field(description="Le conseil principal à tirer de cet événement.")
         impact_potentiel: str = Field(description="L'impact potentiel sur l'industrie.")
         score_pertinence: int = Field(description="Un score de 1 à 10 indiquant l'importance de cet éveil de conscience pour l'Afrique. 10 est critique.", ge=1, le=10)
-        resume_neutre: str = Field(description="Un résumé factuel et neutre de l'article en 2-3 phrases.")
+        resume_neutre: str = Field(description="Un résumé factuel et dense de l'article, de style journalistique (type agence de presse), ""strictement compris entre 700 et 800 caractères.")
         problematique_generale: str = Field(description="La problématique principale ou universelle soulevée par l'article.")
 
 # --- SECTION TYPES (Cohérente et Finale) ---
@@ -156,7 +156,7 @@ def extract_analyze_and_report(state: AgentState) -> dict:
     analysis_prompt_template = """Vous êtes un analyste technologique mondial doublé d'un stratège pour l'Afrique. Pour l'article fourni, effectuez une analyse en deux temps :
     
     **Partie 1 : Analyse Globale (Neutre)**
-    1.  **Résumé Neutre :** Rédigez un résumé factuel et concis de l'article.
+    1.  **Résumé Neutre :** Fournissez un résumé factuel et dense de l'article, de style journalistique (type agence de presse), strictement compris entre 700 et 800 caractères.
     2.  **Problématique Générale :** Identifiez la problématique principale ou universelle soulevée.
     
     **Partie 2 : Analyse Stratégique pour l'Afrique**
